@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trilby's Speed Dating MatchMaker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); }
+        .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+        .tab-active { border-bottom: 3px solid #6366f1; color: #6366f1; }
+        .dual-gradient { background: linear-gradient(90deg, #ec4899 0%, #10b981 100%); }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen pb-20 text-slate-900">
+
+    <!-- Header -->
+    <nav class="gradient-bg text-white p-6 shadow-xl mb-8">
+        <div class="container mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-black tracking-tighter">Trilby's Matchmaker</h1>
+                <p class="text-indigo-100 text-xs uppercase tracking-widest font-bold">Speed Date Tracking</p>
+            </div>
+            <div id="status-tag" class="bg-white/20 px-4 py-1 rounded-full text-sm font-medium">
+                Phase 1: Registration
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mx-auto px-4 max-w-2xl">
+        
+        <!-- PHASE 1: REGISTRATION -->
+        <div id="registration-screen" class="space-y-6">
+            <div class="glass p-8 rounded-3xl shadow-xl border border-white">
+                <h2 class="text-xl font-bold text-gray-800 mb-2 text-center">Add Participants</h2>
+                <p class="text-gray-500 text-sm mb-6 text-center">Enter guests and their contact info as they arrive.</p>
+                
+                <div class="space-y-3">
+                    <input type="text" id="name-input" 
+                           class="w-full p-4 rounded-2xl border-2 border-gray-100 focus:border-indigo-500 outline-none transition-all text-lg" 
+                           placeholder="Participant Name...">
+                    
+                    <div class="flex gap-2">
+                        <input type="text" id="contact-input" onkeypress="handleKey(event)"
+                               class="flex-1 p-4 rounded-2xl border-2 border-gray-100 focus:border-indigo-500 outline-none transition-all text-lg" 
+                               placeholder="Contact (Email, @IG, Phone)...">
+                        <button onclick="addParticipant()" class="gradient-bg text-white px-6 rounded-2xl font-bold shadow-lg hover:brightness-110 active:scale-95 transition-all text-2xl">
+                            +
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-8">
+                    <div class="flex justify-between items-end mb-4">
+                        <h3 class="font-bold text-gray-700">Guest List (<span id="count">0</span>)</h3>
+                        <button onclick="clearList()" class="text-xs text-red-400 hover:text-red-600 uppercase font-bold tracking-tighter">Clear All</button>
+                    </div>
+                    <div id="participant-list" class="space-y-2">
+                        <p id="empty-msg" class="text-gray-400 italic text-sm py-4 text-center">No participants added yet...</p>
+                    </div>
+                </div>
+
+                <div class="mt-10 pt-6 border-t border-gray-100">
+                    <button id="start-btn" onclick="lockRegistration()" disabled 
+                            class="w-full py-4 rounded-2xl font-black text-white bg-gray-300 transition-all shadow-lg">
+                        CONTINUE TO MATCHING
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- PHASE 2: MATCHING ENGINE -->
+        <div id="matching-screen" class="hidden space-y-6">
+            <div class="glass p-6 rounded-3xl shadow-xl border border-white">
+                <div class="flex border-b mb-6">
+                    <button onclick="setTab('entry')" id="tab-entry" class="flex-1 py-3 font-bold tab-active">Record Choices</button>
+                    <button onclick="setTab('results')" id="tab-results" class="flex-1 py-3 font-bold text-gray-400">View Matches</button>
+                </div>
+
+                <!-- Tab: Data Entry -->
+                <div id="view-entry" class="space-y-4">
+                    <p class="text-sm text-gray-500 mb-4 italic text-center">Click a participant to input their selections:</p>
+                    <div id="entry-selector" class="grid grid-cols-2 gap-3">
+                        <!-- Selector buttons -->
+                    </div>
+                </div>
+
+                <!-- Tab: Results -->
+                <div id="view-results" class="hidden space-y-10">
+                    <!-- CATEGORY: DUAL MATCH -->
+                    <section>
+                        <h3 class="text-indigo-600 font-black text-xs uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <span class="p-1 rounded-md bg-indigo-100">✨</span> Romance AND Friendship!
+                        </h3>
+                        <div id="dual-results-list" class="space-y-4"></div>
+                    </section>
+
+                    <section class="pt-6 border-t border-gray-100">
+                        <h3 class="text-pink-600 font-black text-xs uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <span>💖</span> Just Romance
+                        </h3>
+                        <div id="romance-results-list" class="space-y-4"></div>
+                    </section>
+                    
+                    <section class="pt-6 border-t border-gray-100">
+                        <h3 class="text-emerald-600 font-black text-xs uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <span>🤝</span> Just Friendship
+                        </h3>
+                        <div id="friendship-results-list" class="space-y-4"></div>
+                    </section>
+
+                    <!-- CATEGORY: NO MATCHES -->
+                    <section class="pt-6 border-t border-gray-100">
+                        <h3 class="text-gray-500 font-black text-xs uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <span>🧊</span> No Matches Yet
+                        </h3>
+                        <div id="none-results-list" class="grid grid-cols-1 gap-2"></div>
+                    </section>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Choice Modal -->
+    <div id="choice-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div class="gradient-bg p-6 text-white flex justify-between items-center">
+                <h3 class="text-xl font-bold">Choices for <span id="active-user-name"></span></h3>
+                <button onclick="closeModal()" class="text-2xl leading-none">&times;</button>
+            </div>
+            
+            <div class="grid grid-cols-12 gap-2 px-6 py-3 bg-gray-50 border-b text-[10px] font-black uppercase text-gray-400 tracking-wider">
+                <div class="col-span-6">Participant</div>
+                <div class="col-span-3 text-center">🤝 Friend</div>
+                <div class="col-span-3 text-center">💖 Romance</div>
+            </div>
+
+            <div class="p-4 max-h-[50vh] overflow-y-auto" id="choices-list">
+                <!-- Rows injected here -->
+            </div>
+
+            <div class="p-6 bg-slate-50">
+                <button onclick="closeModal()" class="w-full py-4 gradient-bg text-white font-bold rounded-2xl shadow-lg active:scale-95 transition-all">
+                    Finish Recording
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let participants = [];
+        let choices = {}; 
+
+        function handleKey(e) { if (e.key === 'Enter') addParticipant(); }
+
+        function addParticipant() {
+            const nameInput = document.getElementById('name-input');
+            const contactInput = document.getElementById('contact-input');
+            const name = nameInput.value.trim();
+            const contact = contactInput.value.trim() || "No contact provided";
+
+            if (!name) return;
+
+            const id = 'p-' + Date.now();
+            participants.push({ id, name, contact });
+            choices[id] = {};
+            
+            nameInput.value = '';
+            contactInput.value = '';
+            nameInput.focus();
+            updateRegistrationUI();
+        }
+
+        function removeParticipant(id) {
+            participants = participants.filter(p => p.id !== id);
+            delete choices[id];
+            updateRegistrationUI();
+        }
+
+        function updateRegistrationUI() {
+            const list = document.getElementById('participant-list');
+            const startBtn = document.getElementById('start-btn');
+            const emptyMsg = document.getElementById('empty-msg');
+            const count = document.getElementById('count');
+            
+            list.innerHTML = '';
+            count.innerText = participants.length;
+
+            if (participants.length === 0) {
+                list.appendChild(emptyMsg);
+                startBtn.disabled = true;
+                startBtn.className = "w-full py-4 rounded-2xl font-black text-white bg-gray-300";
+            } else {
+                participants.forEach(p => {
+                    const el = document.createElement('div');
+                    el.className = "bg-white p-4 rounded-2xl flex items-center justify-between border border-gray-100 shadow-sm";
+                    el.innerHTML = `
+                        <div>
+                            <div class="font-bold text-gray-800">${p.name}</div>
+                            <div class="text-sm text-indigo-500 font-medium">${p.contact}</div>
+                        </div>
+                        <button onclick="removeParticipant('${p.id}')" class="text-gray-300 hover:text-red-500 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                    `;
+                    list.appendChild(el);
+                });
+                
+                if (participants.length >= 2) {
+                    startBtn.disabled = false;
+                    startBtn.className = "w-full py-4 rounded-2xl font-black text-white gradient-bg shadow-lg hover:scale-[1.01] cursor-pointer transition-all";
+                }
+            }
+        }
+
+        function clearList() {
+            if (confirm("Reset everything?")) {
+                participants = [];
+                choices = {};
+                updateRegistrationUI();
+            }
+        }
+
+        function lockRegistration() {
+            document.getElementById('registration-screen').classList.add('hidden');
+            document.getElementById('matching-screen').classList.remove('hidden');
+            document.getElementById('status-tag').innerText = "Phase 2: Matching";
+            renderSelector();
+        }
+
+        function renderSelector() {
+            const container = document.getElementById('entry-selector');
+            container.innerHTML = '';
+            participants.forEach(p => {
+                const btn = document.createElement('button');
+                const userChoices = choices[p.id];
+                let selectionCount = 0;
+                Object.values(userChoices).forEach(c => {
+                    if (c.friend) selectionCount++;
+                    if (c.romance) selectionCount++;
+                });
+
+                btn.className = `p-4 border-2 rounded-2xl text-left transition-all ${selectionCount > 0 ? 'border-indigo-200 bg-white shadow-sm' : 'border-gray-100 bg-gray-50/50'}`;
+                btn.onclick = () => openChoiceModal(p.id);
+                btn.innerHTML = `
+                    <div class="font-bold text-gray-800 truncate">${p.name}</div>
+                    <div class="text-[10px] uppercase font-bold mt-1 ${selectionCount > 0 ? 'text-indigo-500' : 'text-gray-400'}">
+                        ${selectionCount} Selections
+                    </div>
+                `;
+                container.appendChild(btn);
+            });
+        }
+
+        let activeUserId = null;
+        function openChoiceModal(id) {
+            activeUserId = id;
+            const user = participants.find(p => p.id === id);
+            document.getElementById('active-user-name').innerText = user.name;
+            const list = document.getElementById('choices-list');
+            list.innerHTML = '';
+
+            participants.filter(p => p.id !== id).forEach(other => {
+                const current = choices[id][other.id] || { friend: false, romance: false };
+                const row = document.createElement('div');
+                row.className = "grid grid-cols-12 gap-2 items-center py-3 border-b border-gray-50 last:border-0";
+                row.innerHTML = `
+                    <div class="col-span-6">
+                        <div class="font-semibold text-slate-700 truncate">${other.name}</div>
+                        <div class="text-[10px] text-gray-400 truncate">${other.contact}</div>
+                    </div>
+                    <div class="col-span-3 flex justify-center">
+                        <input type="checkbox" ${current.friend ? 'checked' : ''} 
+                               onchange="updateChoice('${other.id}', 'friend', this.checked)"
+                               class="w-6 h-6 rounded border-gray-300 text-emerald-500 focus:ring-emerald-500">
+                    </div>
+                    <div class="col-span-3 flex justify-center">
+                        <input type="checkbox" ${current.romance ? 'checked' : ''} 
+                               onchange="updateChoice('${other.id}', 'romance', this.checked)"
+                               class="w-6 h-6 rounded border-gray-300 text-pink-500 focus:ring-pink-500">
+                    </div>
+                `;
+                list.appendChild(row);
+            });
+
+            document.getElementById('choice-modal').classList.remove('hidden');
+        }
+
+        function updateChoice(targetId, type, value) {
+            if (!choices[activeUserId][targetId]) {
+                choices[activeUserId][targetId] = { friend: false, romance: false };
+            }
+            choices[activeUserId][targetId][type] = value;
+        }
+
+        function closeModal() {
+            document.getElementById('choice-modal').classList.add('hidden');
+            renderSelector();
+            calculateMatches();
+        }
+
+        function setTab(tab) {
+            const views = { 'entry': 'view-entry', 'results': 'view-results' };
+            const tabs = { 'entry': 'tab-entry', 'results': 'tab-results' };
+            Object.keys(views).forEach(k => {
+                document.getElementById(views[k]).classList.toggle('hidden', k !== tab);
+                document.getElementById(tabs[k]).classList.toggle('tab-active', k === tab);
+                document.getElementById(tabs[k]).classList.toggle('text-gray-400', k !== tab);
+            });
+            if (tab === 'results') calculateMatches();
+        }
+
+        function calculateMatches() {
+            const dualContainer = document.getElementById('dual-results-list');
+            const romanceContainer = document.getElementById('romance-results-list');
+            const friendContainer = document.getElementById('friendship-results-list');
+            const noneContainer = document.getElementById('none-results-list');
+            
+            dualContainer.innerHTML = '';
+            romanceContainer.innerHTML = '';
+            friendContainer.innerHTML = '';
+            noneContainer.innerHTML = '';
+            
+            let dualMatches = [];
+            let romanceOnly = [];
+            let friendshipOnly = [];
+            let matchedIds = new Set();
+            const processed = new Set();
+
+            participants.forEach(p1 => {
+                participants.forEach(p2 => {
+                    const key = [p1.id, p2.id].sort().join('_');
+                    if (p1.id !== p2.id && !processed.has(key)) {
+                        
+                        const p1LikesP2Rom = choices[p1.id][p2.id]?.romance;
+                        const p2LikesP1Rom = choices[p2.id][p1.id]?.romance;
+                        const p1LikesP2Fri = choices[p1.id][p2.id]?.friend;
+                        const p2LikesP1Fri = choices[p2.id][p1.id]?.friend;
+
+                        const isRomanceMatch = p1LikesP2Rom && p2LikesP1Rom;
+                        const isFriendMatch = p1LikesP2Fri && p2LikesP1Fri;
+
+                        if (isRomanceMatch || isFriendMatch) {
+                            matchedIds.add(p1.id);
+                            matchedIds.add(p2.id);
+                        }
+
+                        if (isRomanceMatch && isFriendMatch) {
+                            dualMatches.push([p1, p2]);
+                        } else if (isRomanceMatch) {
+                            romanceOnly.push([p1, p2]);
+                        } else if (isFriendMatch) {
+                            friendshipOnly.push([p1, p2]);
+                        }
+
+                        processed.add(key);
+                    }
+                });
+            });
+
+            // Find people with no matches
+            const noMatches = participants.filter(p => !matchedIds.has(p.id));
+
+            renderMatchList(dualContainer, dualMatches, '✨', 'border-indigo-200 bg-indigo-50/50', 'text-indigo-600 bg-indigo-100/50');
+            renderMatchList(romanceContainer, romanceOnly, '💖', 'border-pink-200 bg-white', 'text-pink-600 bg-pink-50');
+            renderMatchList(friendContainer, friendshipOnly, '🤝', 'border-emerald-200 bg-white', 'text-emerald-600 bg-emerald-50');
+            
+            // Special render for unmatched people
+            if (noMatches.length === 0) {
+                noneContainer.innerHTML = `<p class="text-xs text-gray-400 italic py-4 text-center">Everyone has at least one match!</p>`;
+            } else {
+                noMatches.forEach(p => {
+                    const el = document.createElement('div');
+                    el.className = "flex items-center justify-between p-3 bg-gray-50 border border-gray-100 rounded-xl";
+                    el.innerHTML = `
+                        <span class="font-bold text-gray-700">${p.name}</span>
+                        <span class="text-[11px] text-gray-400 bg-white px-2 py-1 rounded border border-gray-100">${p.contact}</span>
+                    `;
+                    noneContainer.appendChild(el);
+                });
+            }
+        }
+
+        function renderMatchList(container, matches, emoji, cardClasses, contactClasses) {
+            if (matches.length === 0) {
+                container.innerHTML = `<p class="text-xs text-gray-400 italic py-4 text-center">No matches in this category.</p>`;
+                return;
+            }
+            matches.forEach(pair => {
+                const el = document.createElement('div');
+                el.className = `p-4 rounded-2xl border-2 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-300 ${cardClasses}`;
+                el.innerHTML = `
+                    <div class="flex items-center justify-between gap-4 mb-1">
+                        <div class="flex-1">
+                            <div class="text-lg font-bold text-gray-800">${pair[0].name}</div>
+                        </div>
+                        <div class="text-2xl">${emoji}</div>
+                        <div class="flex-1 text-right">
+                            <div class="text-lg font-bold text-gray-800">${pair[1].name}</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between gap-4">
+                        <div class="flex-1">
+                            <div class="text-[13px] ${contactClasses} px-2 py-1 rounded-lg font-semibold inline-block break-all">${pair[0].contact}</div>
+                        </div>
+                        <div class="flex-1 text-right">
+                            <div class="text-[13px] ${contactClasses} px-2 py-1 rounded-lg font-semibold inline-block break-all">${pair[1].contact}</div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(el);
+            });
+        }
+    </script>
+</body>
+</html>
