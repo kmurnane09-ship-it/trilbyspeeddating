@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Trilby's Speed Dating MatchMaker</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Styled SheetJS library (xlsx-js-style) for generating real Excel (.xlsx) files with colors & borders -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
         body { font-family: 'Inter', sans-serif; }
@@ -18,13 +20,22 @@
 
     <!-- Header -->
     <nav class="gradient-bg text-white p-6 shadow-xl mb-8">
-        <div class="container mx-auto flex justify-between items-center">
+        <div class="container mx-auto flex justify-between items-center gap-3">
             <div>
                 <h1 class="text-3xl font-black tracking-tighter">Trilby's Matchmaker</h1>
                 <p class="text-indigo-100 text-xs uppercase tracking-widest font-bold">Speed Date Tracking</p>
             </div>
-            <div id="status-tag" class="bg-white/20 px-4 py-1 rounded-full text-sm font-medium">
-                Phase 1: Registration
+            <div class="flex items-center gap-2">
+                <!-- Button to return to registration/guest editing once in Phase 2 -->
+                <button id="back-to-reg-btn" onclick="unlockRegistration()" class="hidden bg-white text-indigo-600 hover:bg-indigo-50 px-3.5 py-2 rounded-full text-xs font-extrabold shadow-md active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
+                    </svg>
+                    Edit Guest List
+                </button>
+                <div id="status-tag" class="bg-white/20 px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap">
+                    Phase 1: Registration
+                </div>
             </div>
         </div>
     </nav>
@@ -34,8 +45,8 @@
         <!-- PHASE 1: REGISTRATION -->
         <div id="registration-screen" class="space-y-6">
             <div class="glass p-8 rounded-3xl shadow-xl border border-white">
-                <h2 class="text-xl font-bold text-gray-800 mb-2 text-center">Add Participants</h2>
-                <p class="text-gray-500 text-sm mb-6 text-center">Enter guests and their contact info as they arrive.</p>
+                <h2 class="text-xl font-bold text-gray-800 mb-2 text-center">Add or Edit Participants</h2>
+                <p class="text-gray-500 text-sm mb-6 text-center">Enter guests and their contact info, or click the pencil icon to edit an entry.</p>
                 
                 <div class="space-y-3">
                     <input type="text" id="name-input" 
@@ -55,7 +66,7 @@
                 <div class="mt-8">
                     <div class="flex justify-between items-end mb-4">
                         <h3 class="font-bold text-gray-700">Guest List (<span id="count">0</span>)</h3>
-                        <button onclick="clearList()" class="text-xs text-red-400 hover:text-red-600 uppercase font-bold tracking-tighter">Clear All</button>
+                        <button onclick="openResetModal()" class="text-xs text-red-400 hover:text-red-600 uppercase font-bold tracking-tighter">Clear All</button>
                     </div>
                     <div id="participant-list" class="space-y-2">
                         <p id="empty-msg" class="text-gray-400 italic text-sm py-4 text-center">No participants added yet...</p>
@@ -74,6 +85,17 @@
         <!-- PHASE 2: MATCHING ENGINE -->
         <div id="matching-screen" class="hidden space-y-6">
             <div class="glass p-6 rounded-3xl shadow-xl border border-white">
+                <!-- Secondary toolbar for quick navigation back to guest editing -->
+                <div class="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
+                    <button onclick="unlockRegistration()" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-2 rounded-xl transition-all flex items-center gap-1.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                        </svg>
+                        Go Back & Edit Guest Info
+                    </button>
+                    <span class="text-xs text-gray-400 font-medium"><span id="matching-guest-count">0</span> Guests</span>
+                </div>
+
                 <div class="flex border-b mb-6">
                     <button onclick="setTab('entry')" id="tab-entry" class="flex-1 py-3 font-bold tab-active">Record Choices</button>
                     <button onclick="setTab('results')" id="tab-results" class="flex-1 py-3 font-bold text-gray-400">View Matches</button>
@@ -89,6 +111,20 @@
 
                 <!-- Tab: Results -->
                 <div id="view-results" class="hidden space-y-10">
+                    <!-- Export Action Bar -->
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-indigo-50/70 p-4 rounded-2xl border border-indigo-100">
+                        <div>
+                            <div class="font-bold text-gray-800 text-sm">Ready to share results?</div>
+                            <div class="text-xs text-gray-500">Download formatted multi-tab Excel workbook with repeating participant headers.</div>
+                        </div>
+                        <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-3 rounded-xl shadow-md hover:shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 text-sm shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
+                            </svg>
+                            Download Excel (.xlsx)
+                        </button>
+                    </div>
+
                     <!-- CATEGORY: DUAL MATCH -->
                     <section>
                         <h3 class="text-indigo-600 font-black text-xs uppercase tracking-widest mb-4 flex items-center gap-2">
@@ -150,11 +186,57 @@
         </div>
     </div>
 
+    <!-- Edit Participant Modal -->
+    <div id="edit-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div class="gradient-bg p-6 text-white flex justify-between items-center">
+                <h3 class="text-xl font-bold">Edit Participant Info</h3>
+                <button onclick="closeEditModal()" class="text-2xl leading-none">&times;</button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">Participant Name</label>
+                    <input type="text" id="edit-name-input" onkeypress="handleEditKey(event)"
+                           class="w-full p-4 rounded-2xl border-2 border-gray-100 focus:border-indigo-500 outline-none transition-all text-base font-semibold">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">Contact Information</label>
+                    <input type="text" id="edit-contact-input" onkeypress="handleEditKey(event)"
+                           class="w-full p-4 rounded-2xl border-2 border-gray-100 focus:border-indigo-500 outline-none transition-all text-base"
+                           placeholder="Email, @IG, Phone...">
+                </div>
+            </div>
+            <div class="p-6 bg-slate-50 flex gap-3">
+                <button onclick="closeEditModal()" class="flex-1 py-3.5 bg-white border border-gray-200 text-gray-600 font-bold rounded-2xl hover:bg-gray-50 transition-all">
+                    Cancel
+                </button>
+                <button onclick="saveParticipantEdit()" class="flex-1 py-3.5 gradient-bg text-white font-bold rounded-2xl shadow-lg active:scale-95 transition-all">
+                    Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Clear All Confirmation Modal -->
+    <div id="reset-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden p-6 text-center space-y-4">
+            <div class="w-12 h-12 rounded-full bg-red-100 text-red-500 flex items-center justify-center mx-auto text-xl font-bold">!</div>
+            <h3 class="text-lg font-bold text-gray-800">Clear All Participants?</h3>
+            <p class="text-sm text-gray-500">This will remove all names, contact details, and recorded choices.</p>
+            <div class="flex gap-3 pt-2">
+                <button onclick="closeResetModal()" class="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-all">Cancel</button>
+                <button onclick="confirmClearList()" class="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl shadow-md transition-all">Clear All</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let participants = [];
         let choices = {}; 
+        let editingUserId = null;
 
         function handleKey(e) { if (e.key === 'Enter') addParticipant(); }
+        function handleEditKey(e) { if (e.key === 'Enter') saveParticipantEdit(); }
 
         function addParticipant() {
             const nameInput = document.getElementById('name-input');
@@ -177,6 +259,45 @@
         function removeParticipant(id) {
             participants = participants.filter(p => p.id !== id);
             delete choices[id];
+            // Also clean up any references to this deleted participant in other users' choices
+            Object.keys(choices).forEach(userId => {
+                if (choices[userId][id]) {
+                    delete choices[userId][id];
+                }
+            });
+            updateRegistrationUI();
+        }
+
+        function openEditModal(id) {
+            const person = participants.find(p => p.id === id);
+            if (!person) return;
+
+            editingUserId = id;
+            document.getElementById('edit-name-input').value = person.name;
+            document.getElementById('edit-contact-input').value = person.contact === "No contact provided" ? "" : person.contact;
+            document.getElementById('edit-modal').classList.remove('hidden');
+            document.getElementById('edit-name-input').focus();
+        }
+
+        function closeEditModal() {
+            editingUserId = null;
+            document.getElementById('edit-modal').classList.add('hidden');
+        }
+
+        function saveParticipantEdit() {
+            if (!editingUserId) return;
+            const newName = document.getElementById('edit-name-input').value.trim();
+            const newContact = document.getElementById('edit-contact-input').value.trim() || "No contact provided";
+
+            if (!newName) return;
+
+            const person = participants.find(p => p.id === editingUserId);
+            if (person) {
+                person.name = newName;
+                person.contact = newContact;
+            }
+
+            closeEditModal();
             updateRegistrationUI();
         }
 
@@ -196,17 +317,24 @@
             } else {
                 participants.forEach(p => {
                     const el = document.createElement('div');
-                    el.className = "bg-white p-4 rounded-2xl flex items-center justify-between border border-gray-100 shadow-sm";
+                    el.className = "bg-white p-4 rounded-2xl flex items-center justify-between border border-gray-100 shadow-sm gap-3";
                     el.innerHTML = `
-                        <div>
-                            <div class="font-bold text-gray-800">${p.name}</div>
-                            <div class="text-sm text-indigo-500 font-medium">${p.contact}</div>
+                        <div class="min-w-0 flex-1">
+                            <div class="font-bold text-gray-800 truncate">${p.name}</div>
+                            <div class="text-sm text-indigo-500 font-medium truncate">${p.contact}</div>
                         </div>
-                        <button onclick="removeParticipant('${p.id}')" class="text-gray-300 hover:text-red-500 transition-colors">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
-                            </svg>
-                        </button>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <button onclick="openEditModal('${p.id}')" title="Edit participant" class="p-2 rounded-xl text-indigo-500 bg-indigo-50 hover:bg-indigo-100 transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                                </svg>
+                            </button>
+                            <button onclick="removeParticipant('${p.id}')" title="Delete participant" class="p-2 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                        </div>
                     `;
                     list.appendChild(el);
                 });
@@ -214,23 +342,46 @@
                 if (participants.length >= 2) {
                     startBtn.disabled = false;
                     startBtn.className = "w-full py-4 rounded-2xl font-black text-white gradient-bg shadow-lg hover:scale-[1.01] cursor-pointer transition-all";
+                } else {
+                    startBtn.disabled = true;
+                    startBtn.className = "w-full py-4 rounded-2xl font-black text-white bg-gray-300";
                 }
             }
         }
 
-        function clearList() {
-            if (confirm("Reset everything?")) {
-                participants = [];
-                choices = {};
-                updateRegistrationUI();
-            }
+        function openResetModal() {
+            if (participants.length === 0) return;
+            document.getElementById('reset-modal').classList.remove('hidden');
+        }
+
+        function closeResetModal() {
+            document.getElementById('reset-modal').classList.add('hidden');
+        }
+
+        function confirmClearList() {
+            participants = [];
+            choices = {};
+            closeResetModal();
+            updateRegistrationUI();
         }
 
         function lockRegistration() {
             document.getElementById('registration-screen').classList.add('hidden');
             document.getElementById('matching-screen').classList.remove('hidden');
+            document.getElementById('back-to-reg-btn').classList.remove('hidden');
             document.getElementById('status-tag').innerText = "Phase 2: Matching";
+            document.getElementById('matching-guest-count').innerText = participants.length;
             renderSelector();
+            calculateMatches();
+        }
+
+        function unlockRegistration() {
+            document.getElementById('matching-screen').classList.add('hidden');
+            document.getElementById('back-to-reg-btn').classList.add('hidden');
+            document.getElementById('registration-screen').classList.remove('hidden');
+            document.getElementById('status-tag').innerText = "Phase 1: Editing Guests";
+            document.getElementById('start-btn').innerText = "SAVE & RETURN TO MATCHING";
+            updateRegistrationUI();
         }
 
         function renderSelector() {
@@ -238,7 +389,7 @@
             container.innerHTML = '';
             participants.forEach(p => {
                 const btn = document.createElement('button');
-                const userChoices = choices[p.id];
+                const userChoices = choices[p.id] || {};
                 let selectionCount = 0;
                 Object.values(userChoices).forEach(c => {
                     if (c.friend) selectionCount++;
@@ -249,7 +400,8 @@
                 btn.onclick = () => openChoiceModal(p.id);
                 btn.innerHTML = `
                     <div class="font-bold text-gray-800 truncate">${p.name}</div>
-                    <div class="text-[10px] uppercase font-bold mt-1 ${selectionCount > 0 ? 'text-indigo-500' : 'text-gray-400'}">
+                    <div class="text-xs text-gray-400 truncate mt-0.5">${p.contact}</div>
+                    <div class="text-[10px] uppercase font-bold mt-1.5 ${selectionCount > 0 ? 'text-indigo-500' : 'text-gray-400'}">
                         ${selectionCount} Selections
                     </div>
                 `;
@@ -415,6 +567,238 @@
                 `;
                 container.appendChild(el);
             });
+        }
+
+        /**
+         * Generates and downloads a styled Excel (.xlsx) workbook matching the
+         * Matchbook_Sapphic_Speed_Dating_Revised specification:
+         * - Tab 1 ("Match List"): Repeating dark purple header rows (#2B2347) per participant,
+         *   columns [Participant | Participant email | Match category | Match name | Match contact],
+         *   one match per row with soft lavender highlights (#E8DEEE) for "Romance & Friendship".
+         * - Tab 2 ("Not in PDF"): Frozen dark purple header row with columns
+         *   [Name | Registration email | Status] listing any unmatched participants.
+         */
+        function exportToExcel() {
+            try {
+                const wb = XLSX.utils.book_new();
+
+                // Reusable border & cell styles matching specification
+                const thinBorder = {
+                    top: { style: "thin", color: { rgb: "D1D5DB" } },
+                    bottom: { style: "thin", color: { rgb: "D1D5DB" } },
+                    left: { style: "thin", color: { rgb: "D1D5DB" } },
+                    right: { style: "thin", color: { rgb: "D1D5DB" } }
+                };
+
+                const headerStyle = {
+                    font: { name: "Calibri", sz: 11, bold: true, color: { rgb: "FFFFFF" } },
+                    fill: { fgColor: { rgb: "2B2347" } }, // Deep navy/purple (#2B2347)
+                    alignment: { horizontal: "left", vertical: "center" },
+                    border: thinBorder
+                };
+
+                const standardDataStyle = {
+                    font: { name: "Calibri", sz: 11, bold: false, color: { rgb: "111827" } },
+                    fill: { fgColor: { rgb: "FFFFFF" } },
+                    alignment: { horizontal: "left", vertical: "center", wrapText: true },
+                    border: thinBorder
+                };
+
+                const categoryStandardStyle = {
+                    font: { name: "Calibri", sz: 11, bold: false, color: { rgb: "111827" } },
+                    fill: { fgColor: { rgb: "FFFFFF" } },
+                    alignment: { horizontal: "center", vertical: "center" },
+                    border: thinBorder
+                };
+
+                const categoryHighlightStyle = {
+                    font: { name: "Calibri", sz: 11, bold: true, color: { rgb: "2B2347" } },
+                    fill: { fgColor: { rgb: "E8DEEE" } }, // Soft lavender highlight (#E8DEEE)
+                    alignment: { horizontal: "center", vertical: "center" },
+                    border: thinBorder
+                };
+
+                // ==========================================
+                // TAB 1: "Match List"
+                // ==========================================
+                const wsMatchList = {};
+                const headersTab1 = [
+                    "Participant",
+                    "Participant email",
+                    "Match category",
+                    "Match name",
+                    "Match contact"
+                ];
+
+                let currentRow = 0;
+                const unmatchedParticipants = [];
+
+                participants.forEach(p1 => {
+                    const p1Matches = [];
+
+                    participants.forEach(p2 => {
+                        if (p1.id === p2.id) return;
+
+                        const p1LikesP2Rom = Boolean(choices[p1.id]?.[p2.id]?.romance);
+                        const p2LikesP1Rom = Boolean(choices[p2.id]?.[p1.id]?.romance);
+                        const p1LikesP2Fri = Boolean(choices[p1.id]?.[p2.id]?.friend);
+                        const p2LikesP1Fri = Boolean(choices[p2.id]?.[p1.id]?.friend);
+
+                        const isRomanceMatch = p1LikesP2Rom && p2LikesP1Rom;
+                        const isFriendMatch = p1LikesP2Fri && p2LikesP1Fri;
+
+                        const p2Contact = (p2.contact && p2.contact !== "No contact provided") ? p2.contact : "";
+
+                        if (isRomanceMatch && isFriendMatch) {
+                            p1Matches.push({
+                                category: "Romance & Friendship",
+                                name: p2.name,
+                                contact: p2Contact,
+                                isHighlight: true
+                            });
+                        } else if (isRomanceMatch) {
+                            p1Matches.push({
+                                category: "Romance",
+                                name: p2.name,
+                                contact: p2Contact,
+                                isHighlight: false
+                            });
+                        } else if (isFriendMatch) {
+                            p1Matches.push({
+                                category: "Friendship",
+                                name: p2.name,
+                                contact: p2Contact,
+                                isHighlight: false
+                            });
+                        }
+                    });
+
+                    const p1Email = (p1.contact && p1.contact !== "No contact provided") ? p1.contact : "";
+
+                    if (p1Matches.length === 0) {
+                        unmatchedParticipants.push({
+                            name: p1.name,
+                            email: p1Email,
+                            status: "No mutual matches"
+                        });
+                    }
+
+                    // Write repeating header row for this participant block
+                    headersTab1.forEach((headerText, colIdx) => {
+                        wsMatchList[XLSX.utils.encode_cell({ r: currentRow, c: colIdx })] = {
+                            v: headerText,
+                            t: "s",
+                            s: headerStyle
+                        };
+                    });
+                    currentRow++;
+
+                    // If the participant has matches, list one per row; otherwise write one row with blank match columns
+                    const rowsToWrite = p1Matches.length > 0
+                        ? p1Matches
+                        : [{ category: "", name: "", contact: "", isHighlight: false }];
+
+                    rowsToWrite.forEach((match, idx) => {
+                        // Columns A & B populated only on the first row of the participant's block
+                        const colAVal = idx === 0 ? p1.name : "";
+                        const colBVal = idx === 0 ? p1Email : "";
+
+                        wsMatchList[XLSX.utils.encode_cell({ r: currentRow, c: 0 })] = {
+                            v: colAVal,
+                            t: "s",
+                            s: standardDataStyle
+                        };
+                        wsMatchList[XLSX.utils.encode_cell({ r: currentRow, c: 1 })] = {
+                            v: colBVal,
+                            t: "s",
+                            s: standardDataStyle
+                        };
+                        wsMatchList[XLSX.utils.encode_cell({ r: currentRow, c: 2 })] = {
+                            v: match.category,
+                            t: "s",
+                            s: match.isHighlight ? categoryHighlightStyle : categoryStandardStyle
+                        };
+                        wsMatchList[XLSX.utils.encode_cell({ r: currentRow, c: 3 })] = {
+                            v: match.name,
+                            t: "s",
+                            s: standardDataStyle
+                        };
+                        wsMatchList[XLSX.utils.encode_cell({ r: currentRow, c: 4 })] = {
+                            v: match.contact,
+                            t: "s",
+                            s: standardDataStyle
+                        };
+                        currentRow++;
+                    });
+                });
+
+                wsMatchList["!ref"] = XLSX.utils.encode_range({
+                    s: { r: 0, c: 0 },
+                    e: { r: Math.max(currentRow - 1, 0), c: 4 }
+                });
+                wsMatchList["!cols"] = [
+                    { wch: 24 }, // Column A: Participant
+                    { wch: 30 }, // Column B: Participant email
+                    { wch: 24 }, // Column C: Match category
+                    { wch: 24 }, // Column D: Match name
+                    { wch: 42 }  // Column E: Match contact
+                ];
+
+                XLSX.utils.book_append_sheet(wb, wsMatchList, "Match List");
+
+                // ==========================================
+                // TAB 2: "Not in PDF"
+                // ==========================================
+                const wsNotInPdf = {};
+                const headersTab2 = ["Name", "Registration email", "Status"];
+
+                headersTab2.forEach((headerText, colIdx) => {
+                    wsNotInPdf[XLSX.utils.encode_cell({ r: 0, c: colIdx })] = {
+                        v: headerText,
+                        t: "s",
+                        s: headerStyle
+                    };
+                });
+
+                let tab2Row = 1;
+                unmatchedParticipants.forEach(person => {
+                    wsNotInPdf[XLSX.utils.encode_cell({ r: tab2Row, c: 0 })] = {
+                        v: person.name,
+                        t: "s",
+                        s: standardDataStyle
+                    };
+                    wsNotInPdf[XLSX.utils.encode_cell({ r: tab2Row, c: 1 })] = {
+                        v: person.email,
+                        t: "s",
+                        s: standardDataStyle
+                    };
+                    wsNotInPdf[XLSX.utils.encode_cell({ r: tab2Row, c: 2 })] = {
+                        v: person.status,
+                        t: "s",
+                        s: standardDataStyle
+                    };
+                    tab2Row++;
+                });
+
+                wsNotInPdf["!ref"] = XLSX.utils.encode_range({
+                    s: { r: 0, c: 0 },
+                    e: { r: Math.max(tab2Row - 1, 0), c: 2 }
+                });
+                wsNotInPdf["!cols"] = [
+                    { wch: 26 }, // Column A: Name
+                    { wch: 34 }, // Column B: Registration email
+                    { wch: 24 }  // Column C: Status
+                ];
+                // Freeze row 1 on Tab 2
+                wsNotInPdf["!views"] = [{ state: "frozen", ySplit: 1 }];
+
+                XLSX.utils.book_append_sheet(wb, wsNotInPdf, "Not in PDF");
+
+                // Download workbook with exact specified filename
+                XLSX.writeFile(wb, "Matchbook_Sapphic_Speed_Dating_Revised.xlsx");
+            } catch (error) {
+                console.error("Failed to generate Excel file:", error);
+            }
         }
     </script>
 </body>
